@@ -368,7 +368,7 @@ def dfourier(x, y, T1=0, n=3):
     p.show()
 
 if __name__ == '__main__':
-    df = DFView(df=DF(datafile='test.txt'))
+    df = DFView(df=DF(datafile=r'examples/test.txt'))
     df.configure_traits()
 
 
