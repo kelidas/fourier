@@ -1,9 +1,9 @@
 from traits.api \
 import HasTraits, Str, Int, Float, Bool, Property, Array, \
-    Instance, File, Event, on_trait_change, cached_property, Tuple
+    Instance, File, Event, on_trait_change, cached_property, Tuple, Button, DelegatesTo
 
 from traitsui.api \
-    import View, Item, VGroup, HSplit, Group
+    import View, Item, VGroup, HSplit, Group, UItem, HGroup, spring, Tabbed, Label
 
 from traitsui.menu import OKButton
 from mpl_figure_editor import MPLFigureEditor
@@ -12,47 +12,57 @@ import numpy as np
 import pylab as p
 from scipy.integrate import trapz
 
+
+class Data(HasTraits):
+    data = Array()
+
+    x = Array()
+    @on_trait_change('data')
+    def _x_set(self):
+        self.x = self.data[:, 0]
+
+    y = Array()
+    @on_trait_change('data')
+    def _y_set(self):
+        self.y = self.data[:, 1]
+
+
 class DF(HasTraits):
-
-    datafile = File(auto_set=False, enter_set=True)
-
-    data = Property(Array, data_changed=True)
-    def _get_data(self):
-        return np.loadtxt(self.datafile, skiprows=1)
+    data = Instance(Data)
 
     x_range_enabled = Bool(False)
 
-    x_min = Float(input_changed=True, enter_set=True, auto_set=False)
-    @on_trait_change('data')
+    x_min = Float(enter_set=True, auto_set=False, input_changed=True)
+    @on_trait_change('data.data')
     def _x_min_update(self):
-        self.x_min = self.data[:, 0].min()
+        self.x_min = self.data.x.min()
 
-    x_max = Float(input_changed=True, enter_set=True, auto_set=False)
-    @on_trait_change('data')
+    x_max = Float(enter_set=True, auto_set=False, input_changed=True)
+    @on_trait_change('data.data')
     def _x_max_update(self):
-        self.x_max = self.data[:, 0].max()
+        self.x_max = self.data.x.max()
 
     x_mask = Property(Array, depends_on='+input_changed')
     @cached_property
     def _get_x_mask(self):
-        x = self.data[:, 0]
+        x = self.data.x
         return np.logical_and(self.x_min <= x, x <= self.x_max)
 
     x = Property(Array, depends_on='+input_changed')
     @cached_property
     def _get_x(self):
         if self.x_range_enabled:
-            return  self.data[:, 0][self.x_mask]
+            return  self.data.x[self.x_mask]
         else:
-            return  self.data[:, 0]
+            return  self.data.x
 
     y = Property(Array, depends_on='+input_changed')
     @cached_property
     def _get_y(self):
         if self.x_range_enabled:
-            return self.data[:, 1][self.x_mask]
+            return self.data.y[self.x_mask]
         else:
-            return self.data[:, 1]
+            return self.data.y
 
     N = Int(5, enter_set=True, auto_set=False, input_changed=True)
 
@@ -112,45 +122,83 @@ class DF(HasTraits):
     def _get_freq(self):
         return self.Omega1 * self.N_arr / 2. / np.pi
 
-    traits_view = View('datafile',
-                       'N',
-                       Item('x_range_enabled'),
-                       Item('x_min', enabled_when='x_range_enabled'),
-                       Item('x_max', enabled_when='x_range_enabled')
+    traits_view = View(
+                       Group(
+                           Item('N'),
+                           '_',
+                           Label('Set range of one period'),
+                           HGroup(
+                               UItem('x_range_enabled'),
+                               Item('x_min', enabled_when='x_range_enabled'),
+                               Item('x_max', enabled_when='x_range_enabled'),
+                               ),
+                           label='configure parameters for analysis',
+                           show_border=True,
+                           id='df.view',
+                           ),
                        )
 
 
-class DFView(HasTraits):
+class ControlPanel(HasTraits):
+    datafile = File(auto_set=False, enter_set=True)
+
+    data = Instance(Data, ())
+
+    load_data = Button()
+    def _load_data_fired(self):
+        self.data.data = np.loadtxt(self.datafile, skiprows=1)
+        self.df.data = self.data
+
     df = Instance(DF, ())
+
+    view = View(
+                HGroup(
+                       Item('datafile', springy=True, id='control_panel.datafile'),
+                       UItem('load_data'),
+                       ),
+                UItem('df@'),
+                id='control_panel.view',
+                )
+
+
+class MainWindow(HasTraits):
+    panel = Instance(ControlPanel, ())
+
+    df = DelegatesTo('panel')
 
     figure = Instance(Figure)
     def _figure_default(self):
-        figure = Figure(facecolor='white')
-        figure.add_axes([0.15, 0.15, 0.75, 0.75])  # [0.15, 0.15, 0.75, 0.75]
+        figure = Figure(tight_layout=True)
+        figure.add_subplot(111)
+        # figure.add_axes([0.15, 0.15, 0.75, 0.75])
         return figure
 
-    plot_xy = Bool(True, data_changed=True)
-    plot_n_coeff = Bool(False, data_changed=True)
-    plot_freq_coeff = Bool(False, data_changed=True)
-    plot_freq_coeff_abs = Bool(False, data_changed=True)
+    plot_fourier_series = Bool(True)
+    plot_data = Bool(True)
+    plot_xy = Bool(True)
+    plot_n_coeff = Bool(False)
+    plot_freq_coeff = Bool(False)
+    plot_freq_coeff_abs = Bool(False)
 
-    plot_title = Str(enter_set=True, auto_set=False, data_changed=True)
-    label_fsize = Float(15, enter_set=True, auto_set=False, data_changed=True)
-    tick_fsize = Float(15, enter_set=True, auto_set=False, data_changed=True)
-    title_fsize = Float(15, enter_set=True, auto_set=False, data_changed=True)
+    plot_title = Str(enter_set=True, auto_set=False, changed=True)
+    label_fsize = Float(15, enter_set=True, auto_set=False, changed=True)
+    tick_fsize = Float(15, enter_set=True, auto_set=False, changed=True)
+    title_fsize = Float(15, enter_set=True, auto_set=False, changed=True)
 
-    label_default = Bool(True, data_changed=True)
-    x_label = Str('x', data_changed=True)
-    x_limit_on = Bool(False, data_changed=True)
-    x_limit = Tuple((0., 1.), data_changed=True)
-    y_label = Str('y', data_changed=True)
-    y_limit_on = Bool(False, data_changed=True)
-    y_limit = Tuple((0., 1.), data_changed=True)
+    label_default = Bool(True)
+    x_label = Str('x', changed=True)
+    x_limit_on = Bool(False)
+    x_limit = Tuple((0., 1.), changed=True)
+    y_label = Str('y', changed=True)
+    y_limit_on = Bool(False)
+    y_limit = Tuple((0., 1.), changed=True)
 
-    data_changed = Event(True)
-
-    @on_trait_change('df.+input_changed, df.+data_changed, +data_changed')
+    @on_trait_change('+changed')
     def _redraw(self):
+        self._draw_fired()
+
+    draw = Button
+    def _draw_fired(self):
         figure = self.figure
         axes = figure.axes[0]
         axes.clear()
@@ -162,9 +210,14 @@ class DFView(HasTraits):
         tick_fsize = self.tick_fsize
         title_fsize = self.title_fsize
         if self.plot_xy:
-            axes.plot(df.x, df.y, color='blue', label='data')
-            axes.plot(df.x, df.y_fourier, color='green', label='fourier')
-            axes.legend()
+            if self.plot_data and self.plot_fourier_series == False:
+                axes.plot(df.x, df.y, color='blue', label='data')
+            elif self.plot_fourier_series and self.plot_data == False:
+                axes.plot(df.x, df.y_fourier, color='green', label='fourier')
+            else:
+                axes.plot(df.x, df.y, color='blue', label='data')
+                axes.plot(df.x, df.y_fourier, color='green', label='fourier')
+            axes.legend(loc='best')
             axes.grid()
             if self.label_default:
                 self.x_label = 'x'
@@ -182,7 +235,7 @@ class DFView(HasTraits):
         if self.plot_n_coeff:
             axes.vlines(df.N_arr - 0.05, [0], df.cos_coeff, color='blue', label='cos')
             axes.vlines(df.N_arr + 0.05, [0], df.sin_coeff, color='green', label='sin')
-            axes.legend()
+            axes.legend(loc='best')
             axes.grid()
             if self.label_default:
                 self.x_label = 'n'
@@ -200,7 +253,7 @@ class DFView(HasTraits):
         if self.plot_freq_coeff:
             axes.vlines(df.freq, [0], df.cos_coeff, color='blue', label='cos')
             axes.vlines(df.freq, [0], df.sin_coeff, color='green', label='sin')
-            axes.legend()
+            axes.legend(loc='best')
             axes.grid()
             if self.label_default:
                 self.x_label = 'freq'
@@ -218,7 +271,7 @@ class DFView(HasTraits):
         if self.plot_freq_coeff_abs:
             axes.vlines(df.freq, [0], np.abs(df.cos_coeff), color='blue', label='cos')
             axes.vlines(df.freq, [0], np.abs(df.sin_coeff), color='green', label='sin')
-            axes.legend()
+            axes.legend(loc='best')
             axes.set_title(self.plot_title, fontsize=title_fsize)
             if self.label_default:
                 self.x_label = 'freq'
@@ -234,49 +287,50 @@ class DFView(HasTraits):
             p.setp(axes.get_xticklabels(), fontsize=tick_fsize, position=(0, -.01))  # position - posun od osy x
             p.setp(axes.get_yticklabels(), fontsize=tick_fsize)
 
-        self.data_changed = True
+        self.figure.canvas.draw()
 
     traits_view = View(HSplit(
+                              Tabbed(
+                                  Group(
+                                        Item('panel@', show_label=False),
+                                          Group(
+                                                Item('plot_data'),
+                                                Item('plot_fourier_series'),
+                                                '_',
+                                                Item('plot_xy'),
+                                                Item('plot_n_coeff'),
+                                                Item('plot_freq_coeff'),
+                                                Item('plot_freq_coeff_abs'),
+                                                label='plot options',
+                                                show_border=True,
+                                                id='fourier.plot_options'
+                                                ),
+                                         label='fourier',
+                                         dock='tab',
+                                         ),
+                                 Group(
+                                        Item('plot_title', label='title'),
+                                        Item('title_fsize', label='title fontsize'),
+                                        Item('label_fsize', label='label fontsize'),
+                                        Item('tick_fsize', label='tick fontsize'),
+                                        Item('_'),
+                                        Item('x_limit_on'),
+                                        Item('x_limit', label='x limit - plot', enabled_when='x_limit_on'),
+                                        Item('_'),
+                                        Item('y_limit_on'),
+                                        Item('y_limit', label='y limit - plot', enabled_when='y_limit_on'),
+                                        Item('_'),
+                                        Item('label_default'),
+                                        Item('x_label', enabled_when='label_default==False'),
+                                        Item('y_label', enabled_when='label_default==False'),
+                                        label='plot settings',
+                                        show_border=True,
+                                        id='fourier.plot_settings',
+                                    dock='tab',
+                                  ),
+                                ),
                               VGroup(
-                                      Group(
-                                            Item('df@', show_label=False),
-                                            label='fourier settings',
-                                            show_border=True,
-                                            id='fourier.settings'
-                                            ),
-                                      Group(
-                                            Item('plot_xy'),
-                                            Item('plot_n_coeff'),
-                                            Item('plot_freq_coeff'),
-                                            Item('plot_freq_coeff_abs'),
-                                            label='plot options',
-                                            show_border=True,
-                                            id='fourier.plot_options'
-                                            ),
-                                     Group(
-                                            Item('plot_title', label='title'),
-                                            Item('title_fsize', label='title fontsize'),
-                                            Item('label_fsize', label='label fontsize'),
-                                            Item('tick_fsize', label='tick fontsize'),
-                                            Item('_'),
-                                            Item('x_limit_on'),
-                                            Item('x_limit', label='x limit - plot', enabled_when='x_limit_on'),
-                                            Item('_'),
-                                            Item('y_limit_on'),
-                                            Item('y_limit', label='y limit - plot', enabled_when='y_limit_on'),
-                                            Item('_'),
-                                            Item('label_default'),
-                                            Item('x_label', enabled_when='label_default==False'),
-                                            Item('y_label', enabled_when='label_default==False'),
-                                            label='plot settings',
-                                            show_border=True,
-                                            id='fourier.plot_settings'
-                                            ),
-                                        id='fourier.control',
-                                        dock='tab',
-                                        label='settings',
-                                      ),
-                              VGroup(
+                                     UItem('draw'),
                                     Item('figure', editor=MPLFigureEditor(),
                                     resizable=True, show_label=False),
                                     label='Plot sheet',
@@ -285,7 +339,7 @@ class DFView(HasTraits):
                                     ),
                                  ),
                         title='Fourier series',
-                        id='fourier.view',
+                        id='main_window.view',
                         dock='tab',
                         resizable=True,
                         width=0.7,
@@ -295,7 +349,7 @@ class DFView(HasTraits):
 
 
 if __name__ == '__main__':
-    df = DFView()  # df=DF(datafile=r'examples/test.txt'))
+    df = MainWindow()
     df.configure_traits()
 
 
