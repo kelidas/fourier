@@ -1,11 +1,11 @@
 from traits.api \
-import HasTraits, Str, Int, Float, List, Bool, Property, Array, \
+import HasTraits, Str, Int, Float, Bool, Property, Array, \
     Instance, File, Event, on_trait_change, cached_property, Tuple
 
 from traitsui.api \
-    import View, Item, TableEditor, VGroup, HSplit, Group, ModelView
+    import View, Item, VGroup, HSplit, Group
 
-from traitsui.menu import OKButton, MenuBar, Menu, Action
+from traitsui.menu import OKButton
 from mpl_figure_editor import MPLFigureEditor
 from matplotlib.figure import Figure
 import numpy as np
@@ -14,10 +14,9 @@ from scipy.integrate import trapz
 
 class DF(HasTraits):
 
-    datafile = File()
+    datafile = File(auto_set=False, enter_set=True)
 
-    data = Property(Array, depends_on='datafile', data_changed=True)
-    @cached_property
+    data = Property(Array, data_changed=True)
     def _get_data(self):
         return np.loadtxt(self.datafile, skiprows=1)
 
@@ -122,7 +121,7 @@ class DF(HasTraits):
 
 
 class DFView(HasTraits):
-    df = Instance(DF)
+    df = Instance(DF, ())
 
     figure = Instance(Figure)
     def _figure_default(self):
@@ -235,27 +234,6 @@ class DFView(HasTraits):
             p.setp(axes.get_xticklabels(), fontsize=tick_fsize, position=(0, -.01))  # position - posun od osy x
             p.setp(axes.get_yticklabels(), fontsize=tick_fsize)
 
-
-#        if  str(self.model.get_data()) == 'False':
-#            axes.set_title('File error' , \
-#                            size = 'x-large', \
-#                            weight = 'bold', position = (.5, 1.03))
-#        else:
-#            data = self.model.get_data()
-#            #print self.model.get_data()
-#            axes.hist(data, self.model.bins, normed = self.model.normed , \
-#                        cumulative = self.model.cumulative , histtype = self.model.histtype, \
-#                        align = self.model.align, orientation = self.model.orientation, \
-#                        log = self.model.log, facecolor = 'blue', alpha = .3)
-#            axes.set_xlabel('g(X) = R - E', weight = 'semibold')
-#            axes.set_ylabel('Probability' , weight = 'semibold')
-#            axes.set_title('Histogram ' + r'$g(X)$' , \
-#                            size = 'x-large', \
-#                            weight = 'bold', position = (.5, 1.03))
-#            #axes.axis( [0, 4000, 0, 0.0012] )
-#            axes.grid(True)
-#            axes.set_axis_bgcolor(color = 'white')
-#            axes.grid(color = 'gray', linestyle = '--', linewidth = 0.2, alpha = 0.75)
         self.data_changed = True
 
     traits_view = View(HSplit(
@@ -316,81 +294,12 @@ class DFView(HasTraits):
                        )
 
 
-
-def dfourier(x, y, T1=0, n=3):
-    T1 = x.max() - x.min()
-    Omega1 = np.pi * 2. / T1
-
-    def get_a0(x, y, T1):
-        return 1. / T1 * trapz(y, x)
-
-    def cos_coeff(x, y, N):
-        return 2. / T1 * trapz(y * np.cos(N * x * Omega1), x)
-
-    def sin_coeff(x, y, N):
-        return 2. / T1 * trapz(y * np.sin(N * x * Omega1), x)
-
-    N = np.arange(n)[:, None] + 1
-    a0 = get_a0(x, y, T1)
-    cc = cos_coeff(x, y, N)
-    ss = sin_coeff(x, y, N)
-    print a0
-    print cc
-    print ss
-
-    yy = a0 + np.sum(cc[:, None] * np.cos(N * x * Omega1) + ss[:, None] *
-                     np.sin(N * x * Omega1), axis=0)
-
-    freq = Omega1 * N / 2. / np.pi
-
-    p.plot(x, y, label='function')
-    p.plot(x, yy.T, label='fourier series')
-    p.xlabel('time')
-    p.ylabel('y')
-    p.legend()
-
-    p.figure()
-    p.grid()
-    p.vlines(N - 0.05, [0], cc, color='blue', label='cos')
-    p.vlines(N + 0.05, [0], ss, color='green', label='sin')
-    p.xlabel('N')
-    p.ylabel('coeff')
-    p.legend()
-
-    p.figure()
-    p.grid()
-    p.vlines(freq, [0], cc, color='blue', label='cos')
-    p.vlines(freq, [0], ss, color='green', label='sin')
-    p.xlabel('frequency')
-    p.ylabel('coeff')
-    p.legend()
-
-    p.show()
-
 if __name__ == '__main__':
-    df = DFView(df=DF(datafile=r'examples/test.txt'))
+    df = DFView()  # df=DF(datafile=r'examples/test.txt'))
     df.configure_traits()
 
 
 
-#    data = np.loadtxt('jirka.txt', skiprows=1)
-#    #data = np.loadtxt('2lidi-vyp1-acc.txt', skiprows=1)
-#    x = data[:,0]
-#    y = data[:,1]
-#
-#    sam = 1000
-#    #x = np.linspace(-np.pi,np.pi,sam)
-#    #y = np.ones(sam) * np.abs(x)- np.pi/2.
-#    x = np.linspace(-np.pi,np.pi,sam)
-#    y = np.ones(sam) * 10 * (x>=0)-5
-#    y[0]=0
-#    y[-1]=0
-#    #x = np.linspace(-np.pi,np.pi,sam)
-#    #y = np.ones(sam) * x
-#    #x = np.linspace(0,6,sam)
-#    #y = np.cos(2*np.pi*x)
-#
-#    dfourier(x,y, n=9)
 
 
 
