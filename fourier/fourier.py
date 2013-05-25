@@ -132,10 +132,11 @@ class DF(HasTraits):
                                Item('x_min', enabled_when='x_range_enabled'),
                                Item('x_max', enabled_when='x_range_enabled'),
                                ),
-                           label='configure parameters for analysis',
+                           label='parameters for analysis',
                            show_border=True,
-                           id='df.view',
+                           id='df.parameters',
                            ),
+                       id='df.view'
                        )
 
 
@@ -271,6 +272,7 @@ class MainWindow(HasTraits):
         if self.plot_freq_coeff_abs:
             axes.vlines(df.freq, [0], np.abs(df.cos_coeff), color='blue', label='cos')
             axes.vlines(df.freq, [0], np.abs(df.sin_coeff), color='green', label='sin')
+            axes.plot(df.freq, np.sqrt(np.abs(df.sin_coeff) ** 2 + np.abs(df.cos_coeff) ** 2), 'k-', label='energ')
             axes.legend(loc='best')
             axes.set_title(self.plot_title, fontsize=title_fsize)
             if self.label_default:
