@@ -150,25 +150,24 @@ class ControlPanel(HasTraits):
 
     view = View(
                 VGroup(
-                       Item('datafile', springy=True,
-                             id='control_panel.datafile'),
                        HGroup(
-                       Item('datafile', springy=True, editor=FileEditor(entries=20),
+                       Item('datafile', springy=True,
                              id='control_panel.datafile_hist'),
-                       UItem('load_data'),
+                       UItem('load_data', id='control_panel.load_data'),
+                       id='control_panel.datafile_2'
                        ),
                      Group(
-                           Item('N'),
+                           Item('N', id='control_panel.N'),
                            '_',
                            Label('Set range of one period'),
                            HGroup(
-                               UItem('x_range_enabled'),
-                               Item('x_min', enabled_when='x_range_enabled'),
-                               Item('x_max', enabled_when='x_range_enabled'),
+                               UItem('x_range_enabled', id='control_panel.x_range_enabled'),
+                               Item('x_min', enabled_when='x_range_enabled', id='control_panel.x_min'),
+                               Item('x_max', enabled_when='x_range_enabled', id='control_panel.x_max'),
                                ),
-                           label='parameters for analysis',
+                           label='parameters of transformation',
                            show_border=True,
-                           id='df.parameters',
+                           id='control_panel.parameters',
                                ),
                        ),
                 id='control_panel.view',
@@ -326,7 +325,7 @@ class MainWindow(HasTraits):
     traits_view = View(HSplit(
                               Tabbed(
                                   Group(
-                                        Item('panel@', show_label=False),
+                                        Item('panel@', show_label=False, id='fourier.panel'),
                                           Group(
                                                 Item('plot_data'),
                                                 Item('plot_fourier_series'),
@@ -338,6 +337,7 @@ class MainWindow(HasTraits):
                                                 ),
                                         UItem('draw', label='calculate and draw'),
                                          label='fourier',
+                                         id='fourier.fourier'
                                          ),
                                  Group(
                                         Item('plot_title', label='title'),
