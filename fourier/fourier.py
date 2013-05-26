@@ -4,7 +4,7 @@ import HasTraits, Str, Int, Float, Bool, Property, Array, Trait, \
 
 from traitsui.api \
     import View, Item, VGroup, HSplit, Group, UItem, HGroup, spring, Tabbed, \
-    Label, CheckListEditor
+    Label, FileEditor
 
 from traitsui.menu import OKButton
 from mpl_figure_editor import MPLFigureEditor
@@ -104,6 +104,7 @@ class DF(HasTraits):
     energy = Property(Array, depends_on='+input_changed')
     @cached_property
     def _get_energy(self):
+        np.savetxt('energ.txt', np.sqrt(self.sin_coeff ** 2 + self.cos_coeff ** 2))
         return np.sqrt(self.sin_coeff ** 2 + self.cos_coeff ** 2)
 
     y_fourier = Property(Array, depends_on='+input_changed')
@@ -122,6 +123,7 @@ class DF(HasTraits):
     freq = Property(Array, depends_on='+input_changed')
     @cached_property
     def _get_freq(self):
+        np.savetxt('f_fourier.txt', self.Omega1 * self.N_arr / 2. / np.pi)
         return self.Omega1 * self.N_arr / 2. / np.pi
 
 
@@ -148,8 +150,11 @@ class ControlPanel(HasTraits):
 
     view = View(
                 VGroup(
-                HGroup(
-                       Item('datafile', springy=True, id='control_panel.datafile'),
+                       Item('datafile', springy=True,
+                             id='control_panel.datafile'),
+                       HGroup(
+                       Item('datafile', springy=True, editor=FileEditor(entries=20),
+                             id='control_panel.datafile_hist'),
                        UItem('load_data'),
                        ),
                      Group(
@@ -175,13 +180,6 @@ class MainWindow(HasTraits):
 
     df = DelegatesTo('panel')
 
-    figure = Instance(Figure)
-    def _figure_default(self):
-        figure = Figure(tight_layout=True)
-        figure.add_subplot(111)
-        # figure.add_axes([0.15, 0.15, 0.75, 0.75])
-        return figure
-
     plot_fourier_series = Bool(True)
     plot_data = Bool(True)
 
@@ -203,6 +201,13 @@ class MainWindow(HasTraits):
     y_label = Str('y', changed=True)
     y_limit_on = Bool(False)
     y_limit = Tuple((0., 1.), changed=True)
+
+    figure = Instance(Figure)
+    def _figure_default(self):
+        figure = Figure(tight_layout=True)
+        figure.add_subplot(111)
+        # figure.add_axes([0.15, 0.15, 0.75, 0.75])
+        return figure
 
     @on_trait_change('+changed')
     def _redraw(self):
